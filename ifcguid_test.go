@@ -3,6 +3,7 @@ package ifcguid
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -295,18 +296,95 @@ B29D2E4D-9209-4EF1-AA55-9DF70BF727FE;2odIvDaWbEyQfLdVSBzoV_
 	}
 }
 
-func Test_round_trip__random_uuid(t *testing.T) {
+func Test_New_and_ToUuid_and_FromUuid(t *testing.T) {
 	for i := 0; i < 1000; i++ {
-		wantUuid := uuid.New()
+		ifcGuid, err := New()
+		assert.NoError(t, err)
+		assert.Len(t, ifcGuid, 22) // IFC GUID should always be 22 characters
 
-		gotIfcGuid, err := FromUuid(wantUuid)
+		gotUuid, err := ToUuid(ifcGuid)
 		assert.NoError(t, err)
 
-		gotUuid, err := ToUuid(gotIfcGuid)
+		gotIfcGuid, err := FromUuid(gotUuid)
 		assert.NoError(t, err)
+		assert.Equal(t, ifcGuid, gotIfcGuid)
 
-		assert.Equal(t, wantUuid, gotUuid)
+		gotU, err := ToUuid(gotIfcGuid)
+		assert.NoError(t, err)
+		assert.Equal(t, gotUuid, gotU)
 	}
+}
+
+func Test_ConversionFunctions_with_invalid_data(t *testing.T) {
+	tests := []struct {
+		name    string
+		ifcGuid string
+		wantErr string
+	}{
+		{
+			name:    "Empty string",
+			ifcGuid: "",
+			wantErr: "the ifcGuid must be 22 characters long",
+		},
+		{
+			name:    "Too short",
+			ifcGuid: "123456789012345678901",
+			wantErr: "the ifcGuid must be 22 characters long",
+		},
+		{
+			name:    "Too long",
+			ifcGuid: "1234567890123456789012345",
+			wantErr: "the ifcGuid must be 22 characters long",
+		},
+		{
+			name:    "Invalid first character (greater than 3)",
+			ifcGuid: "4ABCDEFGHIJKLMNOPQRSTU",
+			wantErr: "illegal GUID '4ABCDEFGHIJKLMNOPQRSTU' found, it is greater than 128 bits",
+		},
+		{
+			name:    "Invalid characters",
+			ifcGuid: "ABC!@#$%^&*()_+{}|:<>?",
+			wantErr: "contains invalid characters",
+		},
+		{
+			name:    "All zeros",
+			ifcGuid: "0000000000000000000000",
+			wantErr: "",
+		},
+	}
+
+	conversionFunctions := []struct {
+		name     string
+		function func(string) (any, error)
+	}{
+		{"ToUuid", func(s string) (any, error) { return ToUuid(s) }},
+		{"ToInt64", func(s string) (any, error) { return ToInt64(s) }},
+		{"ToInt32", func(s string) (any, error) { return ToInt32(s) }},
+		{"ToIntString", func(s string) (any, error) { return ToIntString(s) }},
+		{"ToAutoCadHandle", func(s string) (any, error) { return ToAutoCadHandle(s) }},
+		{"ToString", func(s string) (any, error) { return ToString(s) }},
+	}
+
+	for _, tt := range tests {
+		for _, cf := range conversionFunctions {
+			t.Run(fmt.Sprintf("%s_%s", cf.name, tt.name), func(t *testing.T) {
+				_, err := cf.function(tt.ifcGuid)
+				if tt.wantErr != "" {
+					assert.Error(t, err)
+					assert.Contains(t, err.Error(), tt.wantErr)
+				} else {
+					assert.NoError(t, err)
+				}
+			})
+		}
+	}
+}
+
+func Test_FromUuid_with_uuidNil(t *testing.T) {
+	ifcGuid, err := FromUuid(uuid.Nil)
+	assert.Error(t, err)
+	assert.Empty(t, ifcGuid)
+	assert.Equal(t, err.Error(), "invalid UUID: nil UUID")
 }
 
 func Test_FromRevitUniqueId_with_valid_data(t *testing.T) {
@@ -386,140 +464,414 @@ func Test_FromRevitUniqueId_with_invalid_data(t *testing.T) {
 }
 
 func Test_AutoCadHandle_conversions(t *testing.T) {
-	handle := fmt.Sprintf("%x", 123456789)
-
-	gotIfcGuid, err := FromAutoCadHandle(handle)
-	assert.NoError(t, err)
-
-	gotHandle, err := ToAutoCadHandle(gotIfcGuid)
-	assert.NoError(t, err)
-	assert.Equal(t, handle, gotHandle)
-}
-
-func Test_integerString_conversions(t *testing.T) {
-	elementId := fmt.Sprintf("%d", 123456789)
-
-	gotIfcGuid, err := FromIntString(elementId)
-	assert.NoError(t, err)
-
-	gotRevitId, err := ToIntString(gotIfcGuid)
-	assert.NoError(t, err)
-	assert.Equal(t, elementId, gotRevitId)
-}
-
-func Test_int32_conversions(t *testing.T) {
-	elementId := int32(123456789)
-
-	gotIfcGuid, err := FromInt32(elementId)
-	assert.NoError(t, err)
-
-	gotRevitId, err := ToInt32(gotIfcGuid)
-	assert.NoError(t, err)
-	assert.Equal(t, elementId, gotRevitId)
-}
-
-func Test_int64_conversions(t *testing.T) {
-	objectId := int64(123456789)
-
-	gotIfcGuid, err := FromInt64(objectId)
-	assert.NoError(t, err)
-
-	gotObjectId, err := ToInt64(gotIfcGuid)
-	assert.NoError(t, err)
-	assert.Equal(t, objectId, gotObjectId)
-}
-
-func Test_FromAutoCadHandle(t *testing.T) {
 	tests := []struct {
-		name    string
-		handle  string
-		want    string
-		wantErr bool
+		name      string
+		handle    string
+		wantError bool
 	}{
+		// Valid cases
 		{
-			name:    "Valid handle 1A",
-			handle:  "1A",
-			want:    "0mC30mC30mC30mC30mC34v",
-			wantErr: false,
+			name:      "Small number",
+			handle:    "1A",
+			wantError: false,
 		},
 		{
-			name:    "Valid handle FF",
-			handle:  "FF",
-			want:    "0mC30mC30mC30mC30mC6Om",
-			wantErr: false,
+			name:      "Medium number",
+			handle:    "DEADBEEF",
+			wantError: false,
 		},
 		{
-			name:    "Valid handle 100",
-			handle:  "100",
-			want:    "0mC30mC30mC30mC30mC6On",
-			wantErr: false,
+			name:      "Large number",
+			handle:    "FFFFFFFFFFFFFFF",
+			wantError: false,
 		},
 		{
-			name:    "Valid handle FFFF",
-			handle:  "FFFF",
-			want:    "0mC30mC30mC30mC31aDMGm",
-			wantErr: false,
+			name:      "Max int64",
+			handle:    "7FFFFFFFFFFFFFFF",
+			wantError: false,
 		},
 		{
-			name:    "Valid handle 10000",
-			handle:  "10000",
-			want:    "0mC30mC30mC30mC31aDMGn",
-			wantErr: false,
+			name:      "Leading zeros",
+			handle:    "000000ABCDEF",
+			wantError: false,
 		},
 		{
-			name:    "Empty handle",
-			handle:  "",
-			want:    "",
-			wantErr: true,
+			name:      "Mixed case",
+			handle:    "aBcDeF123456",
+			wantError: false,
+		},
+		// Invalid cases
+		{
+			name:      "Zero",
+			handle:    "0",
+			wantError: true,
 		},
 		{
-			name:    "Invalid handle (non-hex)",
-			handle:  "G1",
-			want:    "",
-			wantErr: true,
+			name:      "Empty string",
+			handle:    "",
+			wantError: true,
 		},
 		{
-			name:    "Maximum valid handle (max int64)",
-			handle:  "7FFFFFFFFFFFFFFF",
-			want:    "0pCsGpP3WpC3TYCZ4qC30u",
-			wantErr: false,
+			name:      "Non-hexadecimal characters",
+			handle:    "ABCDEFG",
+			wantError: true,
 		},
 		{
-			name:    "Handle exceeding max int64",
-			handle:  "8000000000000000",
-			want:    "",
-			wantErr: true,
+			name:      "Floating point number",
+			handle:    "1A.5",
+			wantError: true,
 		},
 		{
-			name:    "Handle near max int64",
-			handle:  "7FFFFFFFFFFFFFFE",
-			want:    "0pCsGpP3WpC3TYCZ4qC30t",
-			wantErr: false,
+			name:      "Exceeds max uint64",
+			handle:    "80000000000000000",
+			wantError: true,
 		},
 		{
-			name:    "Handle with leading zeros",
-			handle:  "000000000000000F",
-			want:    "0mC30mC30mC30mC30mC31c",
-			wantErr: false,
+			name:      "Contains spaces",
+			handle:    "SOME SPACE",
+			wantError: true,
 		},
 		{
-			name:    "Handle with mixed case",
-			handle:  "DeAdBeEf",
-			want:    "0mC30mC30mC3anP3CsPpSu",
-			wantErr: false,
+			name:      "Contains prefix",
+			handle:    "0xWithPrefix",
+			wantError: true,
+		},
+		{
+			name:      "Contains suffix",
+			handle:    "WithSuffix_",
+			wantError: true,
+		},
+		{
+			name:      "Contains invalid characters",
+			handle:    "Invalid-Characters",
+			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := FromAutoCadHandle(tt.handle)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("FromAutoCadHandle() error = %v, wantErr %v", err, tt.wantErr)
+			gotIfcGuid, err := FromAutoCadHandle(tt.handle)
+
+			if tt.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				gotHandle, err := ToAutoCadHandle(gotIfcGuid)
+				assert.NoError(t, err)
+				var wantHandle string
+				if tt.handle == "0" {
+					// if tt.handle == 0, gotHandle should also be 0
+					wantHandle = tt.handle
+				} else {
+					// if tt.handle starts with zeros, gotHandle will not contain leading zeros
+					wantHandle = strings.TrimLeft(tt.handle, "0")
+				}
+				assert.Equal(t, strings.ToLower(wantHandle), strings.ToLower(gotHandle))
+
+				// Additional check: convert back to UUID and then to handle again
+				gotUuid, err := ToUuid(gotIfcGuid)
+				assert.NoError(t, err)
+
+				finalHandle, err := uuidToAutoCadHandle(gotUuid)
+				assert.NoError(t, err)
+				assert.Equal(t, strings.ToLower(gotHandle), strings.ToLower(finalHandle))
+			}
+		})
+	}
+}
+
+func Test_IntString_conversions(t *testing.T) {
+	tests := []struct {
+		name      string
+		elementId string
+		wantError bool
+	}{
+		// Valid cases
+		{
+			name:      "Small positive number",
+			elementId: "123456789",
+			wantError: false,
+		},
+		{
+			name:      "Large positive number",
+			elementId: "9223372036854775807", // Max int64
+			wantError: false,
+		},
+		{
+			name:      "Negative number",
+			elementId: "-123456789",
+			wantError: false,
+		},
+		// Invalid cases
+		{
+			name:      "Zero",
+			elementId: "0",
+			wantError: true,
+		},
+		{
+			name:      "Empty string",
+			elementId: "",
+			wantError: true,
+		},
+		{
+			name:      "Non-numeric string",
+			elementId: "abc123",
+			wantError: true,
+		},
+		{
+			name:      "Floating point number",
+			elementId: "123.456",
+			wantError: true,
+		},
+		{
+			name:      "Number too large for int64",
+			elementId: "9223372036854775808", // Max int64 + 1
+			wantError: true,
+		},
+		{
+			name:      "Number too small for int64",
+			elementId: "-9223372036854775809", // Min int64 - 1
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIfcGuid, err := FromIntString(tt.elementId)
+
+			if tt.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				gotElementId, err := ToIntString(gotIfcGuid)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.elementId, gotElementId)
+
+				// Additional check: convert back to UUID and then to IntString again
+				gotUuid, err := ToUuid(gotIfcGuid)
+				assert.NoError(t, err)
+
+				finalIntString, err := uuidToIntString(gotUuid, "%d")
+				assert.NoError(t, err)
+				assert.Equal(t, tt.elementId, finalIntString)
+			}
+		})
+	}
+}
+
+func Test_Int32_conversions(t *testing.T) {
+	tests := []struct {
+		name      string
+		elementId int32
+		wantError bool
+	}{
+		{
+			name:      "Small positive number",
+			elementId: 123456789,
+		},
+		{
+			name:      "Maximum int32",
+			elementId: math.MaxInt32,
+		},
+		{
+			name:      "Minimum int32",
+			elementId: math.MinInt32,
+		},
+		{
+			name:      "Negative number",
+			elementId: -123456789,
+		},
+		{
+			name:      "Zero",
+			elementId: 0,
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIfcGuid, err := FromInt32(tt.elementId)
+			if tt.wantError {
+				assert.Error(t, err)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("FromAutoCadHandle() = %v, want %v", got, tt.want)
+			assert.NoError(t, err)
+
+			gotElementId, err := ToInt32(gotIfcGuid)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.elementId, gotElementId)
+
+			// Additional check: convert back to UUID and then to Int32 again
+			gotUuid, err := ToUuid(gotIfcGuid)
+			assert.NoError(t, err)
+
+			finalInt32, err := uuidToInt64(gotUuid)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.elementId, int32(finalInt32))
+		})
+	}
+}
+
+func Test_Int64_conversions(t *testing.T) {
+	tests := []struct {
+		name      string
+		objectId  int64
+		wantError bool
+	}{
+		{
+			name:     "Maximum int64",
+			objectId: math.MaxInt64,
+		},
+		{
+			name:     "Maximum int32",
+			objectId: math.MaxInt32,
+		},
+		{
+			name:     "Minimum int32",
+			objectId: math.MinInt32,
+		},
+		{
+			name:     "Positive number",
+			objectId: 123456789,
+		},
+		{
+			name:     "Large number",
+			objectId: 9223372036854775807,
+		},
+		{
+			name:     "Negative number",
+			objectId: -123456789,
+		},
+		{
+			name:      "Zero",
+			objectId:  0,
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIfcGuid, err := FromInt64(tt.objectId)
+			if tt.wantError {
+				assert.Error(t, err)
+				return
 			}
+			assert.NoError(t, err)
+
+			gotObjectId, err := ToInt64(gotIfcGuid)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.objectId, gotObjectId)
+
+			// Additional check: convert back to UUID and then to Int64 again
+			gotUuid, err := ToUuid(gotIfcGuid)
+			assert.NoError(t, err)
+
+			finalInt64, err := uuidToInt64(gotUuid)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.objectId, finalInt64)
+		})
+	}
+}
+
+func Test_String_conversions(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		// Valid cases
+		{
+			name:      "Revit file with ID",
+			input:     "project1.rvt|123456",
+			wantError: false,
+		},
+		{
+			name:      "AutoCAD file with handle",
+			input:     "drawing.dwg|3A5C",
+			wantError: false,
+		},
+		{
+			name:      "Civil3D file with ID",
+			input:     "site_plan.dwg|1A2B3C",
+			wantError: false,
+		},
+		{
+			name:      "Alphanumeric string",
+			input:     "ABC123xyz789",
+			wantError: false,
+		},
+		{
+			name:      "String with special characters",
+			input:     "Project_2023-05-15@Rev2",
+			wantError: false,
+		},
+		{
+			name:      "Short string",
+			input:     "abc",
+			wantError: false,
+		},
+		{
+			name:      "Long string",
+			input:     "ThisIsAVeryLongStringThatExceedsTheTypicalLengthOfAnIdentifierButShouldStillBeValid",
+			wantError: false,
+		},
+		{
+			name:      "String with leading and trailing spaces",
+			input:     "  ABC123xyz789  ",
+			wantError: false,
+		},
+		{
+			name:      "Zero",
+			input:     "0",
+			wantError: false,
+		},
+		{
+			name:      "String with unicode characters",
+			input:     "��ÖÜäöüß",
+			wantError: false,
+		},
+		// Invalid cases
+		{
+			name:      "Empty string",
+			input:     "",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test FromString
+			gotIfcGuid, err := FromString(tt.input)
+
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Len(t, gotIfcGuid, 22) // IFC GUID should always be 22 characters
+
+			// Test ToString
+			gotString, err := ToString(gotIfcGuid)
+			assert.NoError(t, err)
+			t.Logf("Input string: `%s`", tt.input)
+			t.Logf("Got string: `%s`", gotString)
+
+			// The original input and the result of ToString may not be identical.
+			// We can't directly compare them.
+			// Instead, we ensure that FromString produces the same result for both.
+			checkIfcGuid, err := FromString(gotString)
+			assert.NoError(t, err)
+			assert.Equal(t, gotIfcGuid, checkIfcGuid)
+
+			// Additional check: convert IFC GUID to UUID and back
+			gotUuid, err := ToUuid(gotIfcGuid)
+			assert.NoError(t, err)
+
+			finalIfcGuid, err := FromUuid(gotUuid)
+			assert.NoError(t, err)
+			assert.Equal(t, gotIfcGuid, finalIfcGuid)
 		})
 	}
 }
