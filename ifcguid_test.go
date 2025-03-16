@@ -324,22 +324,22 @@ func Test_ConversionFunctions_with_invalid_data(t *testing.T) {
 		{
 			name:    "Empty string",
 			ifcGuid: "",
-			wantErr: "the ifcGuid must be 22 characters long",
+			wantErr: "the IFC GUID must be 22 characters long",
 		},
 		{
 			name:    "Too short",
 			ifcGuid: "123456789012345678901",
-			wantErr: "the ifcGuid must be 22 characters long",
+			wantErr: "the IFC GUID must be 22 characters long",
 		},
 		{
 			name:    "Too long",
 			ifcGuid: "1234567890123456789012345",
-			wantErr: "the ifcGuid must be 22 characters long",
+			wantErr: "the IFC GUID must be 22 characters long",
 		},
 		{
 			name:    "Invalid first character (greater than 3)",
 			ifcGuid: "4ABCDEFGHIJKLMNOPQRSTU",
-			wantErr: "illegal GUID '4ABCDEFGHIJKLMNOPQRSTU' found, it is greater than 128 bits",
+			wantErr: "illegal IFC GUID: it is greater than 128 bits",
 		},
 		{
 			name:    "Invalid characters",
