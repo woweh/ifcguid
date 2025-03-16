@@ -7,6 +7,7 @@ The process of converting between IFC GUIDs and standard UUIDs is sometimes also
 [![Go Version](https://img.shields.io/github/go-mod/go-version/woweh/ifcguid)](https://golang.org/doc/devel/release.html)
 [![License](https://img.shields.io/github/license/woweh/ifcguid)](https://github.com/woweh/ifcguid/blob/main/LICENSE)
 
+
 ## Table of Contents
 - [Features](#features)
 - [What are IFC GUIDs?](#what-are-ifc-guids)
@@ -19,8 +20,10 @@ The process of converting between IFC GUIDs and standard UUIDs is sometimes also
 - [Contributing](#contributing)
 - [License](#license)
 
+
 ## Features
-- Create new random IFC GUIDs 
+- Create new random IFC GUIDs
+- Validate IFC GUIDs
 - Convert between IFC GUIDs and UUIDs
 - Validate Revit UniqueIDs
 - Convert Revit UniqueIDs to IFC GUIDs
@@ -34,21 +37,33 @@ At the moment, this package only supports base64 encoding, not base16 encoding.
 ### Why convert IFC GUIDs and CAD identifiers?
 Sometimes you don't have the option to persist IFC GUIDs, or keep a table with the original CAD element identifier and the associated IFC GUID.  
 In those cases it's useful if the IFC GUID is based on the original CAD element identifier, so that you can get the CAD element identifier back from the IFC GUID.
+
+### Microsoft GUIDs vs standard UUIDs
+Seemingly, most conversions between IFC GUIDs and UUIDs (GUIDs) were initially done on Microsoft Operating Systems.  
+But there is a difference between Microsoft GUIDs and standard UUIDs.   
+Microsoft GUIDs are mixed endian, while standard UUIDs are sequentially encoded in big-endian.  
+See [Wikipedia Universally unique identifier > Endianness](https://en.wikipedia.org/wiki/Universally_unique_identifier#Endianness).  
+This package produces compatible IFC GUIDs. A UUID computed from an IFC GUID will be mixed endian.  
+
+
 ## What are IFC GUIDs?
 [IFC GUIDs](https://technical.buildingsmart.org/resources/ifcimplementationguidance/ifc-guid/) (Industry Foundation Classes Globally Unique Identifiers, aka. GlobalIds) 
 are special 22-character identifiers used in Building Information Modeling (BIM) to uniquely identify elements across different software platforms and throughout a building's lifecycle.  
 This package facilitates working with these identifiers in Go applications.  
 While technically speaking IFC GUIDs should be universally unique, in practice they are often only unique per CAD document or project.
 
+
 ## Requirements
 This package is developed and tested with Go 1.22.3.  
 It may work with earlier versions, but compatibility is not guaranteed.
+
 
 ## Installation
 To install the `ifcguid` package, use the following command:
 ```shell
 go get github.com/woweh/ifcguid
 ```
+
 
 ## Example
 An example of how to use this package is provided in the `example_test.go` file in the root of the repository.
@@ -57,11 +72,13 @@ You can run this example using:
 go test -v -run=Example
 ```
 
+
 ## Information about calculating ifcGUIDs
 The calculation of ifcGUIDs is based on the following resources:
 - https://technical.buildingsmart.org/resources/ifcimplementationguidance/ifc-guid/
 - https://forums.buildingsmart.org/t/ifcgloballyuniqueids-spec-description-is-incorrect-proposal-to-simplify/1083/7
 - https://github.com/buildingSMART/NextGen-IFC/issues/8
+
 
 ## References and Acknowledgements
 This package was developed with reference to and inspiration from several existing implementations across different programming languages.  
@@ -74,17 +91,21 @@ We acknowledge the following projects that have contributed to our understanding
 
 These projects have been valuable resources in understanding the intricacies of IFC GUID handling across different platforms and languages.
 
+
 ## Testing
 To run the tests for this package, use the following command in the root directory of the project:
 ```shell
 go test ./...
 ```
 
+
 ## Contributing
 Contributions to the ifcguid package are welcome. Please feel free to submit issues, fork the repository and send pull requests!
 
+
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
+
 
 ## Version
 For the latest version and release notes, please check the [releases page](https://github.com/woweh/ifcguid/releases).
