@@ -25,6 +25,22 @@ func New() (string, error) {
 	return FromUuid(guid)
 }
 
+// IsValid checks if the given string is a valid IFC GUID.
+func IsValid(ifcGuid string) error {
+	if len(ifcGuid) != 22 {
+		return fmt.Errorf("the IFC GUID must be 22 characters long")
+	}
+	validChars := regexp.MustCompile(`^[0-9A-Za-z_$]{22}$`)
+	if !validChars.MatchString(ifcGuid) {
+		return fmt.Errorf("invalid IFC GUID format: contains invalid characters")
+	}
+	lastBase64Num := ifcGuid[0]
+	if (lastBase64Num - 48) > 3 {
+		return fmt.Errorf("illegal IFC GUID: it is greater than 128 bits")
+	}
+	return nil
+}
+
 // FromRevitUniqueId converts a Revit 'unique identifier' to an IFC GUID.
 func FromRevitUniqueId(uniqueId string) (string, error) {
 	u, err := revitUniqueIdToUuid(uniqueId)
@@ -120,48 +136,44 @@ func FromString(s string) (string, error) {
 		return "", fmt.Errorf("the input string must not be empty")
 	}
 
-	// Convert string to runes
-	runes := []rune(s)
+	bytes := stringTo16Bytes(s)
 
-	// Create a 16-byte slice
+	u, err := uuid.FromBytes(bytes)
+	if err != nil {
+		return "", err
+	}
+
+	return FromUuid(u)
+}
+
+// stringTo16Bytes converts a string to a byte slice of exactly 16 bytes.
+// This takes 16 bytes from the end of the string, and if necessary, pads with zeros.
+func stringTo16Bytes(s string) []byte {
 	bytes := make([]byte, 16)
-
-	// Start from the end of the rune slice
+	// to handle unicode characters correctly, process the runes in reverse order
+	runes := []rune(s)
 	byteCount := 0
 	runeIndex := len(runes) - 1
-
 	for runeIndex >= 0 && byteCount < 16 {
 		r := runes[runeIndex]
 		runeBytes := []byte(string(r))
 		runeBytesLen := len(runeBytes)
-
 		// Check if adding this rune would exceed 16 bytes
 		if byteCount+runeBytesLen > 16 {
 			break
 		}
-
 		// Copy rune bytes to the end of our byte slice
 		copy(bytes[16-byteCount-runeBytesLen:], runeBytes)
-
 		byteCount += runeBytesLen
 		runeIndex--
 	}
-
 	// If we haven't filled all 16 bytes, left-pad with zeros
 	if byteCount < 16 {
 		for i := 0; i < 16-byteCount; i++ {
 			bytes[i] = 0
 		}
 	}
-
-	// Create UUID from bytes
-	u, err := uuid.FromBytes(bytes)
-	if err != nil {
-		return "", err
-	}
-
-	// Convert UUID to IFC GUID
-	return FromUuid(u)
+	return bytes
 }
 
 // ToString is the inverse of FromString and tries to convert an IFC GUID back to an arbitrary string.
@@ -181,24 +193,14 @@ func ToString(ifcGuid string) (string, error) {
 
 // ToUuid converts an IFC GUID to a UUID.
 func ToUuid(ifcGuid string) (uuid.UUID, error) {
-	if len(ifcGuid) != 22 {
-		return uuid.Nil, fmt.Errorf("the ifcGuid must be 22 characters long")
+	err := IsValid(ifcGuid)
+	if err != nil {
+		return uuid.Nil, err
 	}
 
-	// Check for invalid characters
-	validChars := regexp.MustCompile(`^[0-9A-Za-z_$]{22}$`)
-	if !validChars.MatchString(ifcGuid) {
-		return uuid.Nil, fmt.Errorf("invalid IFC GUID format: contains invalid characters")
-	}
-
-	lastBase64Num := ifcGuid[0]
-	if (lastBase64Num - 48) > 3 {
-		return uuid.Nil, fmt.Errorf("illegal GUID '%v' found, it is greater than 128 bits", ifcGuid)
-	}
-
-	num := make([]uint32, 6)
-	digits := 2
 	pos := 0
+	digits := 2
+	num := make([]uint32, 6)
 	for i := 0; i < 6; i++ {
 		endPos := pos + digits
 		num[i] = b64ToU32(ifcGuid[pos:endPos])
@@ -209,25 +211,29 @@ func ToUuid(ifcGuid string) (uuid.UUID, error) {
 	data1 := num[0]*16777216 + num[1]                // 16-13. bytes
 	data2 := uint16(num[2] / 256)                    // 12-11. bytes
 	data3 := uint16((num[2]%256)*256 + num[3]/65536) // 10-09. bytes
-	d1Bytes := make([]byte, 4)
-	d2Bytes := make([]byte, 2)
-	d3Bytes := make([]byte, 2)
-	binary.NativeEndian.PutUint32(d1Bytes, data1)
-	binary.NativeEndian.PutUint16(d2Bytes, data2)
-	binary.NativeEndian.PutUint16(d3Bytes, data3)
 
 	guidBytes := make([]byte, 16)
-	// write the int32 bytes in reverse order
-	j := 3
-	for i := 0; i < len(d1Bytes); i++ {
-		guidBytes[j] = d1Bytes[i] // 16-13. bytes
-		j--
-	}
-	// write 2 x int16 bytes in reverse order
-	guidBytes[4] = d2Bytes[1]                  //    12. byte
-	guidBytes[5] = d2Bytes[0]                  //    11. byte
-	guidBytes[6] = d3Bytes[1]                  //    10. byte
-	guidBytes[7] = d3Bytes[0]                  //    09. byte
+
+	// Note:
+	// Microsoft GUIDs use a mixed-endian format where the first three components
+	// are stored in little-endian order, while the remaining bytes are in big-endian order.
+	// => Reverse the order of the bytes to be compatible with existing converters.
+
+	// Write data1 (4 bytes) in little-endian order (reversed)
+	guidBytes[0] = byte(data1 >> 24)
+	guidBytes[1] = byte(data1 >> 16)
+	guidBytes[2] = byte(data1 >> 8)
+	guidBytes[3] = byte(data1)
+
+	// Write data2 (2 bytes) in little-endian order (reversed)
+	guidBytes[4] = byte(data2 >> 8)
+	guidBytes[5] = byte(data2)
+
+	// Write data3 (2 bytes) in little-endian order (reversed)
+	guidBytes[6] = byte(data3 >> 8)
+	guidBytes[7] = byte(data3)
+
+	// Write remaining bytes directly
 	guidBytes[8] = byte((num[3] / 256) % 256)  //    08. byte
 	guidBytes[9] = byte(num[3] % 256)          //    07. byte
 	guidBytes[10] = byte(num[4] / 65536)       //    06. byte
@@ -248,12 +254,13 @@ func FromUuid(u uuid.UUID) (string, error) {
 
 	bytes, _ := u.MarshalBinary()
 
-	data1 := binary.NativeEndian.Uint32(reverseBytes(bytes, 0, 3))         // 4byte - int32
-	data2 := uint32(binary.NativeEndian.Uint16(reverseBytes(bytes, 4, 5))) // 2byte - int16
-	data3 := uint32(binary.NativeEndian.Uint16(reverseBytes(bytes, 6, 7))) // 2byte - int16
+	// The UUID bytes are already in the correct order.
+	// We just need to convert them to base 64.
+	data1 := binary.BigEndian.Uint32(bytes[0:4])         // 4byte - int32
+	data2 := uint32(binary.BigEndian.Uint16(bytes[4:6])) // 2byte - int16
+	data3 := uint32(binary.BigEndian.Uint16(bytes[6:8])) // 2byte - int16
 
 	num := make([]uint32, 6)
-
 	num[0] = data1 / 16777216                                                    // 16. byte
 	num[1] = data1 % 16777216                                                    // 15-13. bytes
 	num[2] = data2*256 + data3/256                                               // 12-10. bytes
@@ -290,18 +297,6 @@ func u32ToB64(v uint32, digits int) string {
 		v = v / 64
 	}
 	return string(bytes)
-}
-
-// reverseBytes is a helper function used to reverse a byte slice.
-func reverseBytes(b []byte, from, to int) []byte {
-	l := to - from + 1
-	rb := make([]byte, l)
-	j := 0
-	for i := to; i >= from; i-- {
-		rb[j] = b[i]
-		j++
-	}
-	return rb
 }
 
 // revitUniqueIdToUuid converts a Revit 'UniqueId' to a UUID.
