@@ -38,7 +38,7 @@ func Example() {
 	fmt.Println("Int64 to IFC GUID:", intValue, "->", intGuid)
 
 	// Output:
-	// ifcguid version: 0.2.0
+	// ifcguid version: 0.3.0
 	// UUID to IFC GUID: 01cf62c8-e9bc-bf88-0000-000000000005 -> 01psB8wRo$Y00000000005
 	// IFC GUID to UUID: 01psB8wRo$Y00000000005 -> 01cf62c8-e9bc-bf88-0000-000000000005
 	// Revit Unique ID to IFC GUID: 8d814f39-b6ea-4766-9a4f-8ac3de3501b2-00007c0e -> 2DWKyvjkf7PffFYiFUDNsy
