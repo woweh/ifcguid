@@ -279,6 +279,27 @@ func FromUuid(u uuid.UUID) (string, error) {
 	return chars.String(), nil
 }
 
+// FromUuidString converts a UUID string to an ifcGuid.
+//
+// See the uuid.Parse() documentation for supported UUID forms.
+func FromUuidString(s string) (string, error) {
+	u, err := uuid.Parse(s)
+	if err != nil {
+		return "", err
+	}
+	return FromUuid(u)
+}
+
+// ToUuidString converts an ifcGuid to a UUID string, is the form of `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`,
+// or an empty string if the ifcGuid cannot be converted to a UUID.
+func ToUuidString(ifcGuid string) (string, error) {
+	u, err := ToUuid(ifcGuid)
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
+}
+
 // b64ToU32 converts a base64 string to an uint32.
 func b64ToU32(s string) uint32 {
 	var result uint32 = 0

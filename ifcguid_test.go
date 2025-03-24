@@ -875,3 +875,85 @@ func Test_String_conversions(t *testing.T) {
 		})
 	}
 }
+
+func Test_UuidString_conversions(t *testing.T) {
+	tests := []struct {
+		name      string
+		uuidStr   string
+		wantError bool
+	}{
+		{
+			name:    "Standard UUID",
+			uuidStr: "01cf62c8-e9bc-bf88-0000-000000000005",
+		},
+		{
+			name:    "Standard UUID with uppercase",
+			uuidStr: "3085A8E4-61FD-4776-9FF1-1B24A646CA4F",
+		},
+		{
+			name:    "UUID with no hyphens",
+			uuidStr: "01cf62c8e9bcbf880000000000000005",
+		},
+		{
+			name:    "UUID with braces (Microsoft style)",
+			uuidStr: "{01cf62c8-e9bc-bf88-0000-000000000005}",
+		},
+		{
+			name:    "URN UUID",
+			uuidStr: "urn:uuid:01cf62c8-e9bc-bf88-0000-000000000005",
+		},
+		{
+			name:    "Raw hex encoding",
+			uuidStr: "01cf62c8e9bcbf880000000000000005",
+		},
+		{
+			name:      "Invalid UUID",
+			uuidStr:   "invalid-uuid",
+			wantError: true,
+		},
+		{
+			name:      "Empty string",
+			uuidStr:   "",
+			wantError: true,
+		},
+		{
+			name:      "Too short UUID",
+			uuidStr:   "01cf62c8-e9bc-bf88-0000-00000000000",
+			wantError: true,
+		},
+		{
+			name:      "Too long UUID",
+			uuidStr:   "01cf62c8-e9bc-bf88-0000-000000000005-extra",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test FromUuidString
+			gotIfcGuid, err := FromUuidString(tt.uuidStr)
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			// Test ToUuidString
+			gotUuidStr, err := ToUuidString(gotIfcGuid)
+			assert.NoError(t, err)
+
+			// Compare the original UUID string with the one we got back
+			// Note: We parse both strings to UUID to normalize the format
+			originalUuid, err := uuid.Parse(tt.uuidStr)
+			assert.NoError(t, err)
+			resultUuid, err := uuid.Parse(gotUuidStr)
+			assert.NoError(t, err)
+			assert.Equal(t, originalUuid, resultUuid)
+
+			// Additional check: convert back to IFC GUID
+			finalIfcGuid, err := FromUuidString(gotUuidStr)
+			assert.NoError(t, err)
+			assert.Equal(t, gotIfcGuid, finalIfcGuid)
+		})
+	}
+}
