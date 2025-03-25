@@ -10,7 +10,9 @@ The process of converting between IFC GUIDs and standard UUIDs is sometimes also
 
 ## Table of Contents
 - [Features](#features)
-- [What are IFC GUIDs?](#what-are-ifc-guids)
+  - [What are IFC GUIDs?](#what-are-ifc-guids)
+  - [Why convert IFC GUIDs and CAD identifiers?](#why-convert-ifc-guids-and-cad-identifiers)
+  - [Microsoft GUIDs vs standard UUIDs](#microsoft-guids-vs-standard-uuids)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Example](#example)
@@ -19,6 +21,7 @@ The process of converting between IFC GUIDs and standard UUIDs is sometimes also
 - [Testing](#testing)
 - [Contributing](#contributing)
 - [License](#license)
+- [Version](#version)
 
 
 ## Features
@@ -32,25 +35,26 @@ The process of converting between IFC GUIDs and standard UUIDs is sometimes also
 - Convert string representations of integers to and from IFC GUIDs
 - Convert arbitrary strings to and from IFC GUIDs
 
-At the moment, this package only supports base64 encoding, not base16 encoding.
+At the moment, this package only supports base64 encoding.
 
+### What are IFC GUIDs?
+[IFC GUIDs](https://technical.buildingsmart.org/resources/ifcimplementationguidance/ifc-guid/) (Industry Foundation Classes Globally Unique Identifiers, aka. GlobalIds)
+are special 22-character identifiers used in Building Information Modeling (BIM) to uniquely identify elements across different software platforms and throughout a building's lifecycle.  
+This package facilitates working with these identifiers in Go applications.  
+While technically speaking IFC GUIDs should be universally unique, in practice you can find IFC GUIDs that are only unique _per CAD document or project_.
+ 
 ### Why convert IFC GUIDs and CAD identifiers?
 Sometimes you don't have the option to persist IFC GUIDs, or keep a table with the original CAD element identifier and the associated IFC GUID.  
 In those cases it's useful if the IFC GUID is based on the original CAD element identifier, so that you can get the CAD element identifier back from the IFC GUID.
 
 ### Microsoft GUIDs vs standard UUIDs
-Seemingly, most conversions between IFC GUIDs and UUIDs (GUIDs) were initially done on Microsoft Operating Systems.  
+It appears that most conversions between IFC GUIDs and UUIDs (GUIDs) were initially done on Microsoft Operating Systems.  
 But there is a difference between Microsoft GUIDs and standard UUIDs.   
 Microsoft GUIDs are mixed endian, while standard UUIDs are sequentially encoded in big-endian.  
 See [Wikipedia Universally unique identifier > Endianness](https://en.wikipedia.org/wiki/Universally_unique_identifier#Endianness).  
-This package produces compatible IFC GUIDs. A UUID computed from an IFC GUID will be mixed endian.  
-
-
-## What are IFC GUIDs?
-[IFC GUIDs](https://technical.buildingsmart.org/resources/ifcimplementationguidance/ifc-guid/) (Industry Foundation Classes Globally Unique Identifiers, aka. GlobalIds) 
-are special 22-character identifiers used in Building Information Modeling (BIM) to uniquely identify elements across different software platforms and throughout a building's lifecycle.  
-This package facilitates working with these identifiers in Go applications.  
-While technically speaking IFC GUIDs should be universally unique, in practice they are often only unique per CAD document or project.
+This package produces IFC GUIDs that are compatible with Microsoft GUIDs.  
+When converting an IFC GUID to a UUID using this package, the resulting UUID will be in the mixed-endian format used by Microsoft GUIDs.    
+This approach ensures compatibility with existing CAD and BIM software.
 
 
 ## Requirements
