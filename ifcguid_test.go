@@ -300,7 +300,7 @@ func Test_New_and_ToUuid_and_FromUuid(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		ifcGuid, err := New()
 		assert.NoError(t, err)
-		assert.Len(t, ifcGuid, 22) // IFC GUID should always be 22 characters
+		assert.Nil(t, IsValid(ifcGuid))
 
 		gotUuid, err := ToUuid(ifcGuid)
 		assert.NoError(t, err)
@@ -358,6 +358,7 @@ func Test_ConversionFunctions_with_invalid_data(t *testing.T) {
 		function func(string) (any, error)
 	}{
 		{"ToUuid", func(s string) (any, error) { return ToUuid(s) }},
+		{"ToUuidString", func(s string) (any, error) { return ToUuidString(s) }},
 		{"ToInt64", func(s string) (any, error) { return ToInt64(s) }},
 		{"ToInt32", func(s string) (any, error) { return ToInt32(s) }},
 		{"ToIntString", func(s string) (any, error) { return ToIntString(s) }},

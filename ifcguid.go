@@ -21,11 +21,11 @@ func New() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return FromUuid(guid)
 }
 
 // IsValid checks if the given string is a valid IFC GUID.
+// Returns nil if the given string is a valid IFC GUID, otherwise returns an error.
 func IsValid(ifcGuid string) error {
 	if len(ifcGuid) != 22 {
 		return fmt.Errorf("the IFC GUID must be 22 characters long")
@@ -47,7 +47,6 @@ func FromRevitUniqueId(uniqueId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return FromUuid(u)
 }
 
@@ -57,7 +56,6 @@ func FromAutoCadHandle(handle string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return FromUuid(u)
 }
 
@@ -67,7 +65,6 @@ func ToAutoCadHandle(ifcGuid string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return uuidToAutoCadHandle(u)
 }
 
@@ -82,7 +79,6 @@ func ToInt32(ifcGuid string) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	return int32(i64), nil
 }
 
@@ -92,7 +88,6 @@ func FromInt64(value int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return FromUuid(u)
 }
 
@@ -102,47 +97,39 @@ func ToInt64(ifcGuid string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	return uuidToInt64(u)
 }
 
 // FromIntString converts a string representation of an integer to an IFC GUID.
-// You can use this for string representations of AutoCAD ObjectIDs or Revit elementIDs.
 func FromIntString(value string) (string, error) {
 	intVal, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		return "", err
 	}
-
 	return FromInt64(intVal)
 }
 
 // ToIntString converts an IFC GUID to a string representation of an integer.
-// You can use this for string representations of AutoCAD ObjectIDs or Revit elementIDs.
 func ToIntString(ifcGuid string) (string, error) {
 	u, err := ToUuid(ifcGuid)
 	if err != nil {
 		return "", err
 	}
-
 	return uuidToIntString(u, "%d")
 }
 
 // FromString calculates an IFC GUID from an arbitrary string.
-// Note that this function uses the last 16bytes of the input string to create a UUID and thus the IFC GUID.
-// The input will be truncated if it is longer than 16 bytes, or padded with zeros if necessary.
+// Note that this function uses the last 16 bytes of the input string to create a UUID and thus the IFC GUID.
+// The input will be truncated if it is longer than 16 bytes, or padded with zeros if it shorter than 16 bytes.
 func FromString(s string) (string, error) {
 	if len(s) == 0 {
 		return "", fmt.Errorf("the input string must not be empty")
 	}
-
 	bytes := stringTo16Bytes(s)
-
 	u, err := uuid.FromBytes(bytes)
 	if err != nil {
 		return "", err
 	}
-
 	return FromUuid(u)
 }
 
@@ -178,15 +165,13 @@ func stringTo16Bytes(s string) []byte {
 
 // ToString is the inverse of FromString and tries to convert an IFC GUID back to an arbitrary string.
 //
-// Note that this function will only return the original string if that string was exactly 16 characters long.
-// If the original string was too long, it will have been truncated.
-// If it was too short, it will have been padded with zeros.
+// Note that this function will only return the original string if that string occupied 16 bytes.
+// See FromString for more details.
 func ToString(ifcGuid string) (string, error) {
 	u, err := ToUuid(ifcGuid)
 	if err != nil {
 		return "", err
 	}
-
 	bytes, _ := u.MarshalBinary()
 	return string(bytes), nil
 }
@@ -197,7 +182,6 @@ func ToUuid(ifcGuid string) (uuid.UUID, error) {
 	if err != nil {
 		return uuid.Nil, err
 	}
-
 	pos := 0
 	digits := 2
 	num := make([]uint32, 6)
@@ -207,32 +191,25 @@ func ToUuid(ifcGuid string) (uuid.UUID, error) {
 		pos += digits
 		digits = 4
 	}
-
 	data1 := num[0]*16777216 + num[1]                // 16-13. bytes
 	data2 := uint16(num[2] / 256)                    // 12-11. bytes
 	data3 := uint16((num[2]%256)*256 + num[3]/65536) // 10-09. bytes
-
 	guidBytes := make([]byte, 16)
-
 	// Note:
 	// Microsoft GUIDs use a mixed-endian format where the first three components
 	// are stored in little-endian order, while the remaining bytes are in big-endian order.
 	// => Reverse the order of the bytes to be compatible with existing converters.
-
 	// Write data1 (4 bytes) in little-endian order (reversed)
 	guidBytes[0] = byte(data1 >> 24)
 	guidBytes[1] = byte(data1 >> 16)
 	guidBytes[2] = byte(data1 >> 8)
 	guidBytes[3] = byte(data1)
-
 	// Write data2 (2 bytes) in little-endian order (reversed)
 	guidBytes[4] = byte(data2 >> 8)
 	guidBytes[5] = byte(data2)
-
 	// Write data3 (2 bytes) in little-endian order (reversed)
 	guidBytes[6] = byte(data3 >> 8)
 	guidBytes[7] = byte(data3)
-
 	// Write remaining bytes directly
 	guidBytes[8] = byte((num[3] / 256) % 256)  //    08. byte
 	guidBytes[9] = byte(num[3] % 256)          //    07. byte
@@ -242,7 +219,6 @@ func ToUuid(ifcGuid string) (uuid.UUID, error) {
 	guidBytes[13] = byte(num[5] / 65536)       //    03. byte
 	guidBytes[14] = byte((num[5] / 256) % 256) //    02. byte
 	guidBytes[15] = byte(num[5] % 256)         //    01. byte
-
 	return uuid.FromBytes(guidBytes)
 }
 
@@ -251,15 +227,12 @@ func FromUuid(u uuid.UUID) (string, error) {
 	if u == uuid.Nil {
 		return "", fmt.Errorf("invalid UUID: nil UUID")
 	}
-
 	bytes, _ := u.MarshalBinary()
-
 	// The UUID bytes are already in the correct order.
 	// We just need to convert them to base 64.
 	data1 := binary.BigEndian.Uint32(bytes[0:4])         // 4byte - int32
 	data2 := uint32(binary.BigEndian.Uint16(bytes[4:6])) // 2byte - int16
 	data3 := uint32(binary.BigEndian.Uint16(bytes[6:8])) // 2byte - int16
-
 	num := make([]uint32, 6)
 	num[0] = data1 / 16777216                                                    // 16. byte
 	num[1] = data1 % 16777216                                                    // 15-13. bytes
@@ -267,7 +240,6 @@ func FromUuid(u uuid.UUID) (string, error) {
 	num[3] = data3%256*65536 + uint32(bytes[8])*256 + uint32(bytes[9])           // 09-07. bytes
 	num[4] = uint32(bytes[10])*65536 + uint32(bytes[11])*256 + uint32(bytes[12]) // 06-04. bytes
 	num[5] = uint32(bytes[13])*65536 + uint32(bytes[14])*256 + uint32(bytes[15]) // 03-01. bytes
-
 	//convert nums to base 64 characters
 	digits := 2
 	chars := strings.Builder{}
@@ -275,7 +247,6 @@ func FromUuid(u uuid.UUID) (string, error) {
 		chars.WriteString(u32ToB64(num[i], digits))
 		digits = 4
 	}
-
 	return chars.String(), nil
 }
 
@@ -327,26 +298,20 @@ func revitUniqueIdToUuid(uniqueId string) (uuid.UUID, error) {
 			"the given string isn't a Revit uniqueId (length=%d != 45): %v", len(uniqueId), uniqueId,
 		)
 	}
-
 	elementId, err := strconv.ParseInt(uniqueId[37:45], 16, 64)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("error parsing Revit uniqueId: %v", uniqueId)
 	}
-
 	tempId, err := strconv.ParseInt(uniqueId[28:36], 16, 64)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("error parsing Revit uniqueId: %v", uniqueId)
 	}
-
 	xorValue := tempId ^ elementId
-
 	tmpGuidString := uniqueId[0:28] + fmt.Sprintf("%08x", xorValue)
-
 	result, err := uuid.Parse(tmpGuidString)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("error parsing Revit uniqueId: %v", uniqueId)
 	}
-
 	return result, nil
 }
 
@@ -361,9 +326,7 @@ func IsValidRevitUniqueId(uniqueId string) bool {
 	if len(uniqueId) != 45 {
 		return false
 	}
-
 	r := regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}-[a-fA-F0-9]{8}$")
-
 	return r.MatchString(uniqueId)
 }
 
@@ -386,7 +349,6 @@ func intStringToUuid(s string, base int) (uuid.UUID, error) {
 	if err != nil {
 		return uuid.Nil, err
 	}
-
 	return int64ToUuid(entityId)
 }
 
@@ -396,20 +358,13 @@ func uuidToIntString(u uuid.UUID, format string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	// return the number in decimal format
 	return fmt.Sprintf(format, number), nil
 }
 
 // int64ToUuid converts an int64 to a UUID.
 func int64ToUuid(v int64) (uuid.UUID, error) {
-	// Create a 16-byte array
 	bytes := make([]byte, 16)
-
-	// Convert int64 to bytes
 	binary.BigEndian.PutUint64(bytes[8:], uint64(v))
-
-	// Create UUID from bytes
 	return uuid.FromBytes(bytes)
 }
 
