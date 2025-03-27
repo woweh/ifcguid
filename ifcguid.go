@@ -24,8 +24,8 @@ func New() (string, error) {
 	return FromUuid(guid)
 }
 
-// IsValid checks if the given string is a valid IFC GUID.
-// Returns nil if the given string is a valid IFC GUID, otherwise returns an error.
+// IsValid checks if the given ifcGuid string is a valid IFC GUID.
+// It returns an error if the string is not a valid IFC GUID, or nil if it is valid.
 func IsValid(ifcGuid string) error {
 	if len(ifcGuid) != 22 {
 		return fmt.Errorf("the IFC GUID must be 22 characters long")
@@ -101,6 +101,7 @@ func ToInt64(ifcGuid string) (int64, error) {
 }
 
 // FromIntString converts a string representation of an integer to an IFC GUID.
+// The string is first converted to an integer using strconv.ParseInt (base 10), and then converted to an IFC GUID.
 func FromIntString(value string) (string, error) {
 	intVal, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
@@ -109,7 +110,7 @@ func FromIntString(value string) (string, error) {
 	return FromInt64(intVal)
 }
 
-// ToIntString converts an IFC GUID to a string representation of an integer.
+// ToIntString converts an IFC GUID string to a string representation of an integer (format "%d").
 func ToIntString(ifcGuid string) (string, error) {
 	u, err := ToUuid(ifcGuid)
 	if err != nil {
@@ -118,9 +119,11 @@ func ToIntString(ifcGuid string) (string, error) {
 	return uuidToIntString(u, "%d")
 }
 
-// FromString calculates an IFC GUID from an arbitrary string.
-// Note that this function uses the last 16 bytes of the input string to create a UUID and thus the IFC GUID.
-// The input will be truncated if it is longer than 16 bytes, or padded with zeros if it shorter than 16 bytes.
+// FromString calculates an IFC GUID from an arbitrary string s.
+//
+// The last 16 bytes of the string are used to create a UUID and thus the IFC GUID.
+// If the input is longer than 16 bytes, it will be truncated from the beginning.
+// If it is shorter than 16 bytes, it will be right-aligned and left-padded with zeros.
 func FromString(s string) (string, error) {
 	if len(s) == 0 {
 		return "", fmt.Errorf("the input string must not be empty")
@@ -134,7 +137,8 @@ func FromString(s string) (string, error) {
 }
 
 // stringTo16Bytes converts a string to a byte slice of exactly 16 bytes.
-// This takes 16 bytes from the end of the string, and if necessary, pads with zeros.
+// It takes 16 bytes from the end of the string, and if necessary, pads with zeros.
+// Unicode characters are supported.
 func stringTo16Bytes(s string) []byte {
 	bytes := make([]byte, 16)
 	// to handle unicode characters correctly, process the runes in reverse order
@@ -163,10 +167,9 @@ func stringTo16Bytes(s string) []byte {
 	return bytes
 }
 
-// ToString is the inverse of FromString and tries to convert an IFC GUID back to an arbitrary string.
-//
-// Note that this function will only return the original string if that string occupied 16 bytes.
-// See FromString for more details.
+// ToString attempts to convert an IFC GUID back to an arbitrary string.
+// Note that this is not always reversible: the original string can only be
+// fully recovered if it originally occupied exactly 16 bytes. See FromString for more details.
 func ToString(ifcGuid string) (string, error) {
 	u, err := ToUuid(ifcGuid)
 	if err != nil {
@@ -177,6 +180,8 @@ func ToString(ifcGuid string) (string, error) {
 }
 
 // ToUuid converts an IFC GUID to a UUID.
+// The given ifcGuid string is first validated using IsValid.
+// If the ifcGuid is not valid, an error is returned.
 func ToUuid(ifcGuid string) (uuid.UUID, error) {
 	err := IsValid(ifcGuid)
 	if err != nil {
@@ -222,7 +227,7 @@ func ToUuid(ifcGuid string) (uuid.UUID, error) {
 	return uuid.FromBytes(guidBytes)
 }
 
-// FromUuid converts a UUID to an ifcGuid (= a 22 character length base 64 ifc compliant string).
+// FromUuid converts a UUID to an IFC GUID.
 func FromUuid(u uuid.UUID) (string, error) {
 	if u == uuid.Nil {
 		return "", fmt.Errorf("invalid UUID: nil UUID")
@@ -250,8 +255,7 @@ func FromUuid(u uuid.UUID) (string, error) {
 	return chars.String(), nil
 }
 
-// FromUuidString converts a UUID string to an ifcGuid.
-//
+// FromUuidString converts a UUID string s to an IFC GUID.
 // See the uuid.Parse() documentation for supported UUID forms.
 func FromUuidString(s string) (string, error) {
 	u, err := uuid.Parse(s)
@@ -261,8 +265,8 @@ func FromUuidString(s string) (string, error) {
 	return FromUuid(u)
 }
 
-// ToUuidString converts an ifcGuid to a UUID string, is the form of `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`,
-// or an empty string if the ifcGuid cannot be converted to a UUID.
+// ToUuidString converts an IFC GUID to a UUID string, is the form of `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`,
+// or an empty string if the IFC GUID cannot be converted to a UUID.
 func ToUuidString(ifcGuid string) (string, error) {
 	u, err := ToUuid(ifcGuid)
 	if err != nil {

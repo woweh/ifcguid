@@ -27,7 +27,7 @@ The process of converting between IFC GUIDs and standard UUIDs is sometimes also
 ## Features
 - Create new random IFC GUIDs
 - Validate IFC GUIDs
-- Convert between IFC GUIDs and UUIDs
+- Convert between IFC GUIDs and UUIDs (aka compression/decompression)
 - Validate Revit UniqueIDs
 - Convert Revit UniqueIDs to IFC GUIDs
 - Convert AutoCAD handles to and from IFC GUIDs
@@ -38,8 +38,9 @@ The process of converting between IFC GUIDs and standard UUIDs is sometimes also
 At the moment, this package only supports base64 encoding.
 
 ### What are IFC GUIDs?
-[IFC GUIDs](https://technical.buildingsmart.org/resources/ifcimplementationguidance/ifc-guid/) (Industry Foundation Classes Globally Unique Identifiers, aka. GlobalIds)
-are special 22-character identifiers used in Building Information Modeling (BIM) to uniquely identify elements across different software platforms and throughout a building's lifecycle.  
+[IFC GUIDs](https://technical.buildingsmart.org/resources/ifcimplementationguidance/ifc-guid/) (Industry Foundation Classes Globally Unique Identifiers, aka GlobalIds)
+are 22-character identifiers used in Building Information Modeling (BIM) to uniquely identify elements across different software platforms and throughout a building's lifecycle.  
+IFC GUIDs are effectively compressed UUIDs, developed when storage was limited.  
 This package facilitates working with these identifiers in Go applications.  
 While technically speaking IFC GUIDs should be universally unique, in practice you can find IFC GUIDs that are only unique _per CAD document or project_.
  
@@ -53,7 +54,7 @@ But there is a difference between Microsoft GUIDs and standard UUIDs.
 Microsoft GUIDs are mixed endian, while standard UUIDs are sequentially encoded in big-endian.  
 See [Wikipedia Universally unique identifier > Endianness](https://en.wikipedia.org/wiki/Universally_unique_identifier#Endianness).  
 This package produces IFC GUIDs that are compatible with Microsoft GUIDs.  
-When converting an IFC GUID to a UUID using this package, the resulting UUID will be in the mixed-endian format used by Microsoft GUIDs.    
+When converting an IFC GUID to a UUID using this package, the resulting UUID will match Microsoft GUIDs.    
 This approach ensures compatibility with existing CAD and BIM software.
 
 

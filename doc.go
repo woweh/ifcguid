@@ -1,7 +1,8 @@
 // Package ifcguid provides functions for working with IFC GUIDs (Globally Unique Identifiers, aka GlobalIDs).
 //
-// IFC GUIDs are 22-character base64 strings used in the Industry Foundation Classes (IFC) schema
+// IFC GUIDs are 22-character strings used in the Industry Foundation Classes (IFC) schema
 // for uniquely identifying building elements and other objects in building information models.
+// IFC GUIDs are effectively compressed UUIDs, developed when storage was limited.
 //
 // This package offers a comprehensive set of functions to generate, validate, and convert IFC GUIDs
 // to and from various formats, including UUIDs, Revit UniqueIds, AutoCAD handles, and integer representations.
@@ -9,7 +10,7 @@
 // Key features:
 //   - Generate new random IFC GUIDs
 //   - Validate IFC GUIDs
-//   - Convert between IFC GUIDs and UUIDs
+//   - Convert between IFC GUIDs and UUIDs (aka compression/decompression)
 //   - Validate Revit UniqueIDs
 //   - Convert Revit UniqueIDs to IFC GUIDs
 //   - Convert between IFC GUIDs and AutoCAD handles
